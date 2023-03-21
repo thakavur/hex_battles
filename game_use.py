@@ -1,3 +1,5 @@
+import re
+
 import pygame
 import sys
 from random import randint
@@ -117,7 +119,7 @@ class Hex(pygame.sprite.Sprite):
             return self.neighbours[5]
 
 class Creature(pygame.sprite.Sprite):
-
+    '''Существа с их численными данными и визуалом'''
     def __init__(self, name='random', number=1):
         pygame.sprite.Sprite.__init__(self)
 
@@ -154,6 +156,7 @@ class Creature(pygame.sprite.Sprite):
         self.retals = 1
         self.myturn = False
         self.lasttarget = self
+        self.regeneration = True if 'regeneration' in self.abilities else False
 
         # отсылки к другим классам
         self.team = None
@@ -208,6 +211,41 @@ class Creature(pygame.sprite.Sprite):
             self.hex.board.group.draw(screen)
             clock.tick(40)
 
+    def animate_wound(self):
+        # анимации получения урона
+        old_bottomleft = self.rect.bottomleft
+        # pygame.time.wait(100)
+
+        if self.is_team1:
+            target_sprite = pygame.image.load(f"{self.name.lower()}/target/tile000.png").convert()
+            self.image = target_sprite
+            self.rect = self.image.get_rect()
+            self.rect.bottomleft = self.hex.left_bottom
+        else:
+            ats = pygame.image.load(f"{self.name.lower()}/target/tile000.png").convert()
+            target_sprite = pygame.transform.flip(ats, True, False)
+            self.image = target_sprite
+            self.rect = self.image.get_rect()
+            self.rect.bottomright = self.hex.right_bottom
+
+        target_sprite.set_colorkey((0, 255, 255))
+        screen.fill((255, 255, 255))
+        self.hex.board.draw()
+        self.hex.board.group.draw(screen)
+        self.hex.board.render_logs()
+        pygame.display.flip()
+        pygame.time.wait(300)
+
+        self.image = self.main_image
+        self.rect = self.image.get_rect()
+        self.rect.bottomleft = old_bottomleft
+        screen.fill((255, 255, 255))
+        self.hex.board.draw()
+        self.hex.board.group.draw(screen)
+        self.hex.board.render_logs()
+        pygame.display.flip()
+        clock.tick(40)
+
     def animate_attack(self, other, ranged=False):
         # выбор анимации в зависимости от расположения противника
         old_bottomleft = self.rect.bottomleft
@@ -215,14 +253,21 @@ class Creature(pygame.sprite.Sprite):
             if self.hex.left_top[0] > other.hex.left_top[0]:
                 ats = pygame.image.load(f"{self.name.lower()}/ranged/tile000.png").convert()
                 attack_sprite = pygame.transform.flip(ats, True, False)
+                self.image = attack_sprite
+                self.rect = self.image.get_rect()
+                self.rect.bottomright = self.hex.right_bottom
             else:
                 attack_sprite = pygame.image.load(f"{self.name.lower()}/ranged/tile000.png").convert()
-            self.image = attack_sprite
-            self.rect = self.image.get_rect()
-            self.rect.bottomleft = self.hex.left_bottom
+                self.image = attack_sprite
+                self.rect = self.image.get_rect()
+                self.rect.bottomleft = self.hex.left_bottom
+            # self.image = attack_sprite
+            # self.rect = self.image.get_rect()
+            # self.rect.bottomleft = self.hex.left_bottom
             attack_sprite.set_colorkey((0, 255, 255))
             screen.fill((255, 255, 255))
             self.hex.board.draw()
+            self.hex.board.render_logs()
             self.hex.board.group.draw(screen)
             pygame.display.flip()
 
@@ -231,14 +276,21 @@ class Creature(pygame.sprite.Sprite):
             if self.hex.left_top[0] > other.hex.left_top[0]:
                 ats = pygame.image.load(f"{self.name.lower()}/ranged/tile001.png").convert()
                 attack_sprite = pygame.transform.flip(ats, True, False)
+                self.image = attack_sprite
+                self.rect = self.image.get_rect()
+                self.rect.bottomright = self.hex.right_bottom
             else:
                 attack_sprite = pygame.image.load(f"{self.name.lower()}/ranged/tile001.png").convert()
-            self.image = attack_sprite
-            self.rect = self.image.get_rect()
-            self.rect.bottomleft = self.hex.left_bottom
+                self.image = attack_sprite
+                self.rect = self.image.get_rect()
+                self.rect.bottomleft = self.hex.left_bottom
+            # self.image = attack_sprite
+            # self.rect = self.image.get_rect()
+            # self.rect.bottomleft = self.hex.left_bottom
             attack_sprite.set_colorkey((0, 255, 255))
             screen.fill((255, 255, 255))
             self.hex.board.draw()
+            self.hex.board.render_logs()
             self.hex.board.group.draw(screen)
             pygame.display.flip()
 
@@ -249,6 +301,7 @@ class Creature(pygame.sprite.Sprite):
                 screen.fill((255, 255, 255))
                 self.hex.board.draw()
                 self.hex.board.group.draw(screen)
+                self.hex.board.render_logs()
                 pygame.display.flip()
                 clock.tick(40)
         elif self.two_hex:
@@ -309,6 +362,7 @@ class Creature(pygame.sprite.Sprite):
             attack_sprite.set_colorkey((0, 255, 255))
             screen.fill((255, 255, 255))
             self.hex.board.draw()
+            self.hex.board.render_logs()
             self.hex.board.group.draw(screen)
 
             pygame.display.flip()
@@ -351,6 +405,7 @@ class Creature(pygame.sprite.Sprite):
             attack_sprite.set_colorkey((0, 255, 255))
             screen.fill((255, 255, 255))
             self.hex.board.draw()
+            self.hex.board.render_logs()
             self.hex.board.group.draw(screen)
 
             pygame.display.flip()
@@ -363,6 +418,7 @@ class Creature(pygame.sprite.Sprite):
         self.rect.bottomleft = old_bottomleft
         screen.fill((255, 255, 255))
         self.hex.board.draw()
+        self.hex.board.render_logs()
         self.hex.board.group.draw(screen)
         pygame.display.flip()
         clock.tick(40)
@@ -429,21 +485,21 @@ class Creature(pygame.sprite.Sprite):
         other.number = max(fh_after_dmg // other.health + int(bool(fh_after_dmg % other.health)), 0)
         other.current_health = fh_after_dmg - (other.number - 1) * other.health
 
-        print(f'{self.name} наносят {dmg} урона.\n')
+        # print(f'{self.name} наносят {dmg} урона.\n')
         self.hex.board.update_logs(f'{self.name} наносят {dmg} урона.')
-
+        other.animate_wound()
         if other.number < number_before:
-            print(f'Погибает {number_before - other.number} {other.name}')
+            # print(f'Погибает {number_before - other.number} {other.name}')
             self.hex.board.update_logs(f'Погибает {number_before - other.number} {other.name}')
             self.hex.board.killed[other.team][other.name] = self.hex.board.killed[other.team].get(other.name, 0) +\
                                                             number_before - other.number
             other.team.update()
 
         if other.number > 0:
-            print(f'Осталось {other.number} {other.name}, здоровье - {other.current_health} из {other.health}\n')
+            # print(f'Осталось {other.number} {other.name}, здоровье - {other.current_health} из {other.health}\n')
             self.hex.board.update_logs(f'Осталось {other.number} {other.name}, здоровье - {other.current_health} из {other.health}')
         else:
-            print(f'{other.name} из {other.team.name} пали\n')
+            # print(f'{other.name} из {other.team.name} пали\n')
             self.hex.board.update_logs(f'{other.name} из {other.team.name} пали')
             other.team.destroy(other)
             other.kill()
@@ -527,7 +583,7 @@ class Creature(pygame.sprite.Sprite):
                 possible = [i for i in two_hex_neighbours if self.hex.board.calculate_distance(self.hex, i) is not None]
             if not possible:
                 return False
-            print(possible)
+            # print(possible)
             if self.two_hex and self.is_team1:
                 possible.sort(key=lambda x: self.hex.board.calculate_distance(self.hex, x.neighbours[5]))
             elif self.two_hex and self.is_team2:
@@ -557,7 +613,7 @@ class Creature(pygame.sprite.Sprite):
                 possible2 = [i for i in other.hex.neighbours if i not in possible and i is not None and not i.occupied and i.neighbours[5] is not None and self.hex.board.calculate_distance(self.hex, i) is not None]
             else:
                 possible = [i for i in other.hex.neighbours if self.hex.board.calculate_distance(self.hex, i) is not None]
-            print(f'нужная инфо {possible}')
+            # print(f'нужная инфо {possible}')
             if not possible:
                 return False
             if self.two_hex and self.is_team1:
@@ -730,11 +786,11 @@ class Creature(pygame.sprite.Sprite):
         # это для передвижения на соседний гекс
         self.moving = True
         if target is None or self.flyer is False and self.hex.board.distance(self.hex, target) is None:
-            print('Цель недостижима')
-
+            # print('Цель недостижима')
+            pass
         elif self.flyer is False and self.hex.board.distance(self.hex, target) is None:
-            print('Цель недостижима')
-
+            # print('Цель недостижима')
+            pass
         elif isinstance(target, Hex):
             self.find_xy_route(target)
             # print(f'x {self.route_x}')
@@ -761,7 +817,7 @@ class Creature(pygame.sprite.Sprite):
             # pygame.display.flip()
             # clock.tick(40)
         else:
-            print('Это не гекс!')
+            # print('Это не гекс!')
             text_un = font.render('Это не гекс', True, 'black')
             screen.blit(text_un, (850, 450))
         # self.moving = False
@@ -774,7 +830,8 @@ class Creature(pygame.sprite.Sprite):
 
     def move(self, target: Hex):
         if self.hex == target:
-            print(f'{self.name} не двигается\n')
+            # print(f'{self.name} не двигается\n')
+            pass
         elif self.flyer:
             self.moving = True
             self.hex.occupied = False
@@ -794,13 +851,13 @@ class Creature(pygame.sprite.Sprite):
 
             self.moving = False
             self.moved_this_round = True
-            print(f'{self.name} перелетает на гекс {target}\n')
+            # print(f'{self.name} перелетает на гекс {target}\n')
             self.hex.board.update_logs(f'{self.name} перелетает на гекс {target}')
         else:
             self.moving = True
-            print('Вот дистанция')
+            # print('Вот дистанция')
             for part in self.hex.board.distance(self.hex, target):
-                print(part)
+                # print(part)
                 self.hex.occupied = False
                 self.hex.occupied_by = None
                 if self.two_hex:
@@ -820,7 +877,7 @@ class Creature(pygame.sprite.Sprite):
             self.moved_this_round = True
 
 
-            print(f'{self.name} переходит на гекс {target}\n')
+            # print(f'{self.name} переходит на гекс {target}\n')
             self.hex.board.update_logs(f'{self.name} переходит на гекс {target}')
 
         clock.tick(40)
@@ -852,13 +909,13 @@ class Creature(pygame.sprite.Sprite):
             ranged = True
 
         if retal:
-            print(f'{self.number} {self.name} отвечает {other.number} {other.name}\n')
+            # print(f'{self.number} {self.name} отвечает {other.number} {other.name}\n')
             self.hex.board.update_logs(f'{self.number} {self.name} отвечает {other.number} {other.name}')
         elif ranged:
-            print(f'{self.number} {self.name} атакуте {other.number} {other.name} в дальнем бою\n')
-            self.hex.board.update_logs(f'{self.number} {self.name} атакуте {other.number} {other.name} в дальнем бою')
+            # print(f'{self.number} {self.name} атакуте {other.number} {other.name} в дальнем бою\n')
+            self.hex.board.update_logs(f'{self.number} {self.name} атакует {other.number} {other.name} в дальнем бою')
         else:
-            print(f'{self.number} {self.name} атакует {other.number} {other.name}\n')
+            # print(f'{self.number} {self.name} атакует {other.number} {other.name}\n')
             self.hex.board.update_logs(f'{self.number} {self.name} атакует {other.number} {other.name}')
         if retal or second:
             pygame.time.wait(200)
@@ -890,16 +947,16 @@ class Creature(pygame.sprite.Sprite):
                         target_hex.neighbours.index(n) - target_hex.neighbours.index(attacking_hex)) == 3 and type(
                         n.occupied_by) == Creature and n.occupied_by != other and n.occupied_by.number > 0:
                     db_target = n.occupied_by
-                    print(f'Атака {self.name} поражает дополнительную цель {db_target}!\n')
+                    # print(f'Атака {self.name} поражает дополнительную цель {db_target}!\n')
                     self.hex.board.update_logs(f'Атака {self.name} поражает дополнительную цель!')
                     self.do_damage(db_target)
         if self.multiple_strike:
-            if self.hex in target_hex.neighbours:
-                targets_set = set([n.occupied_by for n in self.hex.neighbours if isinstance(n.occupied_by, Creature) and n.occupied_by.team != self.team and n.occupied_by != other])
+            if self.two_hex:
+                targets_set = set([n.occupied_by for n in self.hex.neighbours + self.front_hex.neighbours if n is not None and isinstance(n.occupied_by, Creature) and n.occupied_by.team != self.team and n.occupied_by != other])
             else:
-                targets_set = set([n.occupied_by for n in self.front_hex.neighbours if isinstance(n.occupied_by, Creature) and n.occupied_by.team != self.team and n.occupied_by != other])
+                targets_set = set([n.occupied_by for n in self.hex.neighbours if n is not None and isinstance(n.occupied_by, Creature) and n.occupied_by.team != self.team and n.occupied_by != other])
             for db_target in targets_set:
-                print(f'Атака {self.name} поражает дополнительную цель {db_target}!\n')
+                # print(f'Атака {self.name} поражает дополнительную цель {db_target}!\n')
                 self.hex.board.update_logs(f'Атака {self.name} поражает дополнительную цель!')
                 self.do_damage(db_target)
         if other.number > 0:
@@ -951,6 +1008,9 @@ class Creature(pygame.sprite.Sprite):
         self.actions = 1
         self.attack_numbers = 2 if '2_strikes' in self.abilities else 1
         self.moved_this_round = False
+        if self.regeneration:
+            self.current_health = self.health
+            self.hex.board.update_logs(f'{self.name} восстановили здоровье до максимума!')
 
     def __del__(self):
         # self.model.destroy()
@@ -969,7 +1029,7 @@ class Team:
         self.comp = []
         for cr in crs:
             self.comp.append(cr)
-        print(self.comp)
+        # print(self.comp)
         try:
             self.info = [(i.number, i.name, i.hex) for i in self.comp]
         except:
@@ -1189,13 +1249,14 @@ class Board:
         color = (0, 0, 19)
         root2 = math.sqrt(2)
         side = 80
-        start_point = 80
+        start_point_x = 80
+        start_point_y = 47
         for h in range(self.rows):
-            y = h * (side * root2 / 2 + side)
+            y = h * (side * root2 / 2 + side) + start_point_y
             shivt = -1 * side * root2 / 2 if h % 2 == 1 else 0
             for k in range(self.cols):
                 hex = self.hexes[count]
-                x = k * side * root2 + start_point + shivt
+                x = k * side * root2 + start_point_x + shivt
                 coords = ((side * root2 / 2 + x, 0 + y), (side * root2 + x, side * root2 / 2 + y),
                           (side * root2 + x, side * root2 / 2 + side + y),
                           (side * root2 / 2 + x, side * root2 + side + y), (0 + x, side * root2 / 2 + side + y),
@@ -1263,7 +1324,7 @@ class Board:
         for hex in self.hexes:
             if hex.left_top[0] < event.pos[0] < hex.right_bottom[0] \
                     and hex.left_top[1] < event.pos[1] < hex.right_bottom[1]:
-                print(f'выбран гекс {hex}')
+                # print(f'выбран гекс {hex}')
                 if hex.occupied is False:
                     if cr.two_hex:
                         if cr.flyer:
@@ -1361,7 +1422,7 @@ class Board:
 
                 elif isinstance(hex.occupied_by, Creature) and cr.team != hex.occupied_by.team:
                     attack_hex = cr.attackable_find_hex(hex.occupied_by)  # ИСПРАВИТЬ, НУЖНО НАЗНАЧИТЬ СЮДА БЛИЖАЙШИЙ К МЫШИ ГЕКС
-                    print(f'гекс для атаки:{attack_hex}')
+                    # print(f'гекс для атаки:{attack_hex}')
                     if cr.ranged and cr.is_blocked() is False and cr.arrows > 0:
                         cr.attack(hex.occupied_by)
                         cr.myturn = False
@@ -1409,6 +1470,12 @@ class Board:
         for log in self.logs:
             if 'Начинается' in log:
                 text_un = font_logs.render(log, True, 'green')
+            elif 'Логи' in log:
+                text_un = font_logs.render(log, True, 'orange')
+            elif 'на гекс' in log:
+                text_un = font_logs.render(log, True, 'blue')
+            elif 'атаку' in log:
+                text_un = font_logs.render(log, True, 'gold')
             else:
                 text_un = font_logs.render(log, True, 'black')
             self.screen.blit(text_un, (950, current_log_y + 20))
@@ -1425,9 +1492,11 @@ class Board:
             raise ValueError('Сначала нужно запустить игру и расставить юнитов!')
 
         for c in team1.comp:
-            print(c, c.hex)
+            # print(c, c.hex)
+            pass
         for c in team2.comp:
-            print(c, c.hex)
+            # print(c, c.hex)
+            pass
 
         rounds = 0
 
@@ -1436,27 +1505,26 @@ class Board:
             if team1.comp and team2.comp:
                 # creatures_list = team1.comp + team2.comp
                 # print(creatures_list)
+                rounds += 1
+                # print(f'Начинается {rounds} раунд\n')
+                self.update_logs(f'Начинается {rounds} раунд')
                 for cr in self.creatures_list:
                     cr.restore()
                 team1.update()
                 team2.update()
-                rounds += 1
-                print(f'Начинается {rounds} раунд\n')
-                self.update_logs(f'Начинается {rounds} раунд')
-                print(f'{team1}\n')
-                print(f'{team2}\n')
+                # print(f'{team1}\n')
+                # print(f'{team2}\n')
                 new_list = [j for j in self.creatures_list if j.number >= 1]
-                print(new_list)
+                # print(new_list)
                 self.creatures_list = copy(new_list)
                 self.creatures_list.sort(key=lambda x: (x.speed, -(x.team.comp.index(x) + 1) / len(x.team.comp)), reverse=True)
-                print(f'Порядок ходов:\n')
-                for number, creature in enumerate(self.creatures_list):
-                    print(number + 1, creature.name)
+                # print(f'Порядок ходов:\n')
+                # for number, creature in enumerate(self.creatures_list):
+                #     print(number + 1, creature.name)
 
                 for cr in self.creatures_list:
-                    # if team1.comp and team2.comp and (cr in team1.comp or cr in team2.comp):
                     if team1.comp and team2.comp and cr.number > 0:
-                        print(cr.name)
+                        # print(cr.name)
                         cr.myturn = True
                         # выделить анимацией существо
 
@@ -1503,7 +1571,7 @@ class Board:
 
             else:
                 winners = team1.name if len(team1.comp) > 0 else team2.name
-                print(f'Сражение окончено за {rounds} раундов. Победили {winners}')
+                # print(f'Сражение окончено за {rounds} раундов. Победили {winners}')
                 self.update_logs(f'Сражение окончено за {rounds} раундов. Победили {winners}')
                 results_screen = True
                 to_menu_button = MenuBox(950, 700, 50, 32, text='ОК')
@@ -1511,7 +1579,7 @@ class Board:
                 # text_un = font_logs.render(results_text, True, 'black')
                 killed_team1 = [f'Потери {team1.name}']
                 killed_team2 = [f'Потери {team2.name}']
-                print(self.killed)
+                # print(self.killed)
                 for keys, values in self.killed[team1].items():
                     killed_team1.append(f'{keys}: {values}')
                 for keys, values in self.killed[team2].items():
@@ -1519,21 +1587,27 @@ class Board:
                 line_list1 = []
                 line_list2 = []
                 for lines in killed_team1:
-                    print(lines)
-                    text = font_logs.render(lines, True, 'black')
+                    # print(lines)
+                    if 'Потери' in lines:
+                        text = font_logs.render(lines, True, 'black')
+                    else:
+                        text = font_logs.render(lines, True, 'brown')
                     line_list1.append(text)
                 for lines in killed_team2:
-                    print(lines)
-                    text = font_logs.render(lines, True, 'black')
+                    # print(lines)
+                    if 'Потери' in lines:
+                        text = font_logs.render(lines, True, 'black')
+                    else:
+                        text = font_logs.render(lines, True, 'brown')
                     line_list2.append(text)
                 lines_y = 540
                 for i in line_list1:
                     screen.blit(i, (950, lines_y))
-                    lines_y += 15
+                    lines_y += 20
                 lines_y = 540
                 for i in line_list2:
                     screen.blit(i, (1200, lines_y))
-                    lines_y += 15
+                    lines_y += 20
                 while results_screen:
                     for event in pygame.event.get():
                         if event.type == pygame.QUIT:
@@ -1626,11 +1700,13 @@ class MenuBox:
                     menu = False
                     select_menu()
                 elif self.function == 'about':
-                    ... #  здесь информация о программе
+                    about()
                 elif self.function == 'menu':
                     # global menu
                     # menu = True
                     show_menu()
+                elif self.function == 'rules':
+                    rules()
                 elif self.function == 'board':
                     start(self.input_boxes, self.input_boxes2, self.check_box1, self.check_box2)
                 else:
@@ -1719,6 +1795,7 @@ class SlideBox:
         pass
 
     def update_data(self):
+        #  нужна для показа в меню выбора данных о существах
         self.data3 = ''
         self.image = None
         if self.option:
@@ -1743,6 +1820,8 @@ class SlideBox:
                 self.data3 += 'два выстрела'
             if 'multiple_attack' in pack[self.option]['abilities']:
                 self.data3 += 'атакует всех вокруг'
+            if 'regeneration' in pack[self.option]['abilities']:
+                self.data3 += 'регенерирует здоровье каждый раунд'
 
         else:
             self.data = ''
@@ -1750,7 +1829,7 @@ class SlideBox:
 
 
     def draw(self, screen):
-        # Blit the text.
+        # рисует способности и статистику существ, а также опции выбора существ на этапе выбора
         screen.blit(self.txt_surface, (self.rect.x+5, self.rect.y+5))
         screen.blit(self.data_surface, (self.rect.x+5, self.rect.y + 35))
         screen.blit(self.data_surface2, (self.rect.x+5, self.rect.y+55))
@@ -1764,6 +1843,8 @@ class SlideBox:
 
 
 class InputBox:
+
+    '''Нужен для ввода текстовых данных (в данном случае чисел)'''
 
     def __init__(self, x, y, w, h, text='', takes='int'):
         self.rect = pygame.Rect(x, y, w, h)
@@ -1788,7 +1869,7 @@ class InputBox:
         if event.type == pygame.KEYDOWN:
             if self.active:
                 if event.key == pygame.K_RETURN:
-                    print(self.text)
+                    # print(self.text)
                     if self.type == 'int':
                         try:
                             self.content = int(self.text)
@@ -1820,6 +1901,8 @@ class InputBox:
 
 
 class CheckBox:
+
+    '''Нужен для выбора типа игрока - человек или компьютер'''
 
     def __init__(self, x, y, w, h, text=''):
         self.rect = pygame.Rect(x, y, w, h)
@@ -1910,11 +1993,13 @@ class CheckBox:
 #         return -1
 
 def show_menu():
+    '''Показывает главное меню'''
     text = font.render(f'Это главное меню. Выберите нужную опцию для старта', True, 'black')
-    option1 = MenuBox(525, 400, 200, 30, text='Начать игру', function='play')
-    option3 = MenuBox(525, 450, 200, 30, text='О программе', function='about')
-    option2 = MenuBox(525, 500, 200, 30, text='Выход', function='exit')
-    options = [option1, option2, option3]
+    option1 = MenuBox(560, 400, 200, 30, text='Начать игру', function='play')
+    option4 = MenuBox(560, 450, 200, 30, text='Правила игры', function='rules')
+    option3 = MenuBox(560, 500, 200, 30, text='О программе', function='about')
+    option2 = MenuBox(560, 550, 200, 30, text='Выход', function='exit')
+    options = [option1, option2, option3, option4]
     global menu
     menu = True
     while menu:
@@ -1926,12 +2011,13 @@ def show_menu():
                 # pygame.time.wait(500)
                 option.handle_event(event)
         screen.fill((255, 255, 255))
-        screen.blit(text, (325, 325))
+        screen.blit(text, (360, 325))
         for option in options:
             option.draw(screen)
         pygame.display.flip()
 
 def start(input_boxes, input_boxes2, check_box1, check_box2):
+    '''Срабатывает в момент нажатия кнопки начать в меню выбора, позволяет старотовать матч'''
     selected = []
     selected2 = []
     global select_screen
@@ -1944,7 +2030,6 @@ def start(input_boxes, input_boxes2, check_box1, check_box2):
         if n.option and input_boxes2[i+5].content:
             creature = Creature(name=n.option, number=input_boxes2[i+5].content)
             selected2.append(creature)
-
 
     player1 = 'human' if check_box1.active else 'computer'
     player2 = 'human' if check_box2.active else 'computer'
@@ -1962,39 +2047,43 @@ def start(input_boxes, input_boxes2, check_box1, check_box2):
         pass
 
 def select_menu():
-    text = font.render(f'Это меню выбора персонажей. Наберите свою команду и нажмите кнопку Начать"', True, 'black')
+
+    '''Показывает меню выбора отрядов'''
+
+    text = font.render(f'Это меню выбора персонажей. Наберите свою команду и нажмите кнопку Начать', True, 'black')
+    text2 = font.render(f'Внимание! Для установки количества существ нужно ввести число в окно и нажать энтер', True, 'black')
     # pygame.display.flip()
     select_screen = True
     cr_data = [name for name in data_h1.columns]
 
-    quantity_box1 = InputBox(350, 100, 60, 32)
-    quantity_box2 = InputBox(350, 200, 60, 32)
-    quantity_box3 = InputBox(350, 300, 60, 32)
-    quantity_box4 = InputBox(350, 400, 60, 32)
-    quantity_box5 = InputBox(350, 500, 60, 32)
-    check_box1 = CheckBox(100, 50, 30, 30, text='Человек')
-    slide_box1 = SlideBox(100, 100, 200, 32, data=cr_data, base_option='')
-    slide_box2 = SlideBox(100, 200, 200, 32, data=cr_data, base_option='')
-    slide_box3 = SlideBox(100, 300, 200, 32, data=cr_data, base_option='')
-    slide_box4 = SlideBox(100, 400, 200, 32, data=cr_data, base_option='')
-    slide_box5 = SlideBox(100, 500, 200, 32, data=cr_data, base_option='')
+    quantity_box1 = InputBox(350, 120, 60, 32)
+    quantity_box2 = InputBox(350, 220, 60, 32)
+    quantity_box3 = InputBox(350, 320, 60, 32)
+    quantity_box4 = InputBox(350, 420, 60, 32)
+    quantity_box5 = InputBox(350, 520, 60, 32)
+    check_box1 = CheckBox(100, 70, 30, 30, text='Человек')
+    slide_box1 = SlideBox(100, 120, 200, 32, data=cr_data, base_option='')
+    slide_box2 = SlideBox(100, 220, 200, 32, data=cr_data, base_option='')
+    slide_box3 = SlideBox(100, 320, 200, 32, data=cr_data, base_option='')
+    slide_box4 = SlideBox(100, 420, 200, 32, data=cr_data, base_option='')
+    slide_box5 = SlideBox(100, 520, 200, 32, data=cr_data, base_option='')
 
     input_boxes = [slide_box1, slide_box2, slide_box3, slide_box4, slide_box5,
                    quantity_box1, quantity_box2, quantity_box3, quantity_box4, quantity_box5, check_box1]
     # print(slide_box1.options)
 
-    slide_box6 = SlideBox(700, 100, 200, 32, data=cr_data, base_option='')
-    slide_box7 = SlideBox(700, 200, 200, 32, data=cr_data, base_option='')
-    slide_box8 = SlideBox(700, 300, 200, 32, data=cr_data, base_option='')
-    slide_box9 = SlideBox(700, 400, 200, 32, data=cr_data, base_option='')
-    slide_box10 = SlideBox(700, 500, 200, 32, data=cr_data, base_option='')
-    quantity_box6 = InputBox(950, 100, 60, 32)
-    quantity_box7 = InputBox(950, 200, 60, 32)
-    quantity_box8 = InputBox(950, 300, 60, 32)
-    quantity_box9 = InputBox(950, 400, 60, 32)
-    quantity_box10 = InputBox(950, 500, 60, 32)
+    slide_box6 = SlideBox(700, 120, 200, 32, data=cr_data, base_option='')
+    slide_box7 = SlideBox(700, 220, 200, 32, data=cr_data, base_option='')
+    slide_box8 = SlideBox(700, 320, 200, 32, data=cr_data, base_option='')
+    slide_box9 = SlideBox(700, 420, 200, 32, data=cr_data, base_option='')
+    slide_box10 = SlideBox(700, 520, 200, 32, data=cr_data, base_option='')
+    quantity_box6 = InputBox(950, 120, 60, 32)
+    quantity_box7 = InputBox(950, 220, 60, 32)
+    quantity_box8 = InputBox(950, 320, 60, 32)
+    quantity_box9 = InputBox(950, 420, 60, 32)
+    quantity_box10 = InputBox(950, 520, 60, 32)
 
-    check_box2 = CheckBox(700, 50, 30, 30, text='Человек')
+    check_box2 = CheckBox(700, 70, 30, 30, text='Человек')
     input_boxes2 = [slide_box6, slide_box7, slide_box8, slide_box9, slide_box10,
                    quantity_box6, quantity_box7, quantity_box8, quantity_box9, quantity_box10, check_box2]
 
@@ -2026,9 +2115,110 @@ def select_menu():
         screen.fill((250, 250, 250))
         for box in input_boxes + input_boxes2 + buttons:
             box.draw(screen)
-        screen.blit(text, (325, 0))
+        screen.blit(text, (225, 0))
+        screen.blit(text2, (225, 25))
         pygame.display.flip()
         clock.tick(30)
+
+def rules():
+    rules_font = pygame.font.Font(None, 26)
+    back_button = MenuBox(100, 700, 100, 32, text='Назад', function='menu')
+    text = 'Вот правила игры'
+    text2 = ['Игра имитирует сражения из игры "Герои меча и магии-1".',
+             'В пошаговом сражении участвует 2 армии, каждая состоит из не более чем 5 видов сказочных существ.',
+             'Тип и количество существ можно настроить в меню выбора в начале игры.',
+             'У вас есть опции играть против другого человека, компьютера и самого себя.',
+             'Каждое существо в армии игрока обладает количеством и боевыми параметрами, определяющими его мощь (см ниже).',
+             'Сражение делится на раунды.',
+             'В рамках каждого раунда каждое существо получает ход только один раз, очерёдность зависит от параметра скорости.',
+             'В рамках своего хода существо может: ',
+             '1) передвинуться на количество клеток, равное скорости (у летающих существ нет ограничений): кликните на свободную клетку',
+             '2) атаковать противника (в т.ч. после перемещения): кликните на противника',
+             '3) а также атаковать в дальнем бою (доступно стрелкам): кликните на противника',
+             'В ходе атаки существа наносят урон, могут уничтожить одно или несколько существ команды противника',
+             'Команда, оставшаяся без существ, проигрывает.']
+    text3 = 'Параметры существ'
+    text5 = ['1) Атака', ' - определяет способность существа к нападению. За каждое очко разницы между атакой атакующего',
+             'и защитой обороняющегося наносимый урон увеличивается на 10% (максимум - на 200%).',
+             '2) Защита', ' - определяет способность существа к обороне. За каждое очко разницы между защитой обороняющегося',
+             'и атакой атакующего наносимый урон уменьшается на 10% (максимум - на 70%).',
+             '3) Урон', ' - определяет количество повреждений, наносимых одним существом в отряде.',
+             '4) Здоровье', ' - определяет количество повреждений, которое может выдержать существо.',
+             '5) Скорость', ' - определяет количество клеток, которое существо способно пройти за один ход. Летающие существа могут передвигаться на любую дистанцию.',
+             'Также от скорости зависит порядок хода существ в ходе раунда.']
+    ...
+    data_surface = rules_font.render(text, True, 'blue')
+    all_text_surfaces = []
+    for string in text2:
+        if 'В рамках своего хода' in string or 'раунды' in string:
+            all_text_surfaces.append(rules_font.render(string, True, 'red'))
+        else:
+            all_text_surfaces.append(rules_font.render(string, True, 'black'))
+    all_text_surfaces.append(rules_font.render(text3, True, 'purple'))
+    for string in text5:
+        if re.findall(r'\d\)', string):
+            all_text_surfaces.append(rules_font.render(string, True, 'red'))
+        else:
+            all_text_surfaces.append(rules_font.render(string, True, 'black'))
+    rules_screen = True
+    while rules_screen:
+        for event in pygame.event.get():
+            if event.type == pygame.QUIT:
+                sys.exit()
+            elif event.type == pygame.KEYDOWN:
+                if event.key == pygame.K_ESCAPE:
+                    rules_screen = False
+                    show_menu()
+
+
+            back_button.handle_event(event)
+            back_button.update()
+        screen.fill((255, 255, 255))
+        screen.blit(data_surface, (525, 50))
+        k = 85
+        for line in all_text_surfaces:
+            screen.blit(line, (60, k))
+            k += 22
+        back_button.draw(screen)
+        pygame.display.flip()
+
+def about():
+    rules_font = pygame.font.Font(None, 26)
+    back_button = MenuBox(100, 700, 100, 32, text='Назад', function='menu')
+    text = 'О программе'
+    text2 = ['Hex Battles.',
+             'Версия 0.28',
+             '@ Daniel Sukhan (thakavur), 2023',
+             ]
+    ...
+    data_surface = rules_font.render(text, True, 'blue')
+    all_text_surfaces = []
+    for string in text2:
+        if 'О программе' in string:
+            all_text_surfaces.append(rules_font.render(string, True, 'red'))
+        else:
+            all_text_surfaces.append(rules_font.render(string, True, 'black'))
+    a_screen = True
+    while a_screen:
+        for event in pygame.event.get():
+            if event.type == pygame.QUIT:
+                sys.exit()
+            elif event.type == pygame.KEYDOWN:
+                if event.key == pygame.K_ESCAPE:
+                    a_screen = False
+                    show_menu()
+
+
+            back_button.handle_event(event)
+            back_button.update()
+        screen.fill((255, 255, 255))
+        screen.blit(data_surface, (525, 50))
+        k = 125
+        for line in all_text_surfaces:
+            screen.blit(line, (360, k))
+            k += 25
+        back_button.draw(screen)
+        pygame.display.flip()
 
 show_menu()
 
